@@ -1,0 +1,1297 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MasterInventory - Gestión de Inventario Inteligente</title>
+    <!-- Google Fonts: Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- jsPDF & jsPDF-AutoTable for PDF Generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Background Overlay -->
+    <div class="app-background"></div>
+
+    <!-- LOGIN SCREEN -->
+    <div class="login-screen-overlay" id="login-screen">
+        <div class="login-card glass-panel">
+            <div class="login-header">
+                <div class="login-logo">
+                    <i data-lucide="package-open" class="logo-icon-large"></i>
+                    <h2>MasterInventory</h2>
+                </div>
+                <p data-i18n="login.subtitle">Ingresa tus credenciales para acceder al sistema</p>
+            </div>
+            
+            <!-- Language Toggle on Login -->
+            <div class="login-lang-toggle">
+                <button class="lang-btn" id="login-lang-btn" onclick="toggleLanguage()">
+                    <i data-lucide="globe"></i>
+                    <span id="login-lang-label">EN</span>
+                </button>
+            </div>
+
+            <form id="login-form" onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label for="login-username"><i data-lucide="user"></i> <span data-i18n="login.user">Usuario</span></label>
+                    <input type="text" id="login-username" placeholder="operario1" required autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label for="login-password"><i data-lucide="lock"></i> <span data-i18n="login.password">Contraseña</span></label>
+                    <input type="password" id="login-password" placeholder="••••••••" required autocomplete="current-password">
+                </div>
+                <div class="login-error-msg" id="login-error" data-i18n="login.error">Usuario o contraseña incorrectos</div>
+                <button type="submit" class="btn btn-primary btn-block">
+                    <span data-i18n="login.btn">Iniciar Sesión</span> <i data-lucide="arrow-right"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- APP LAYOUT CONTAINER -->
+    <div class="app-container hidden" id="app-container">
+        
+        <!-- SIDEBAR -->
+        <aside class="app-sidebar glass-panel">
+            <div class="sidebar-brand">
+                <i data-lucide="package-open" class="logo-icon"></i>
+                <h1>MasterInventory</h1>
+            </div>
+
+            <nav class="sidebar-nav">
+                <ul>
+                    <li class="nav-item active" id="nav-inventario" onclick="switchTab('inventario')">
+                        <i data-lucide="boxes"></i>
+                        <span data-i18n="nav.inventory">Inventario</span>
+                    </li>
+                    <li class="nav-item" id="nav-ordenes" onclick="switchTab('ordenes')">
+                        <i data-lucide="shopping-cart"></i>
+                        <span data-i18n="nav.orders">Órdenes y Pedidos</span>
+                    </li>
+                    <li class="nav-item" id="nav-reporte" onclick="switchTab('reporte')">
+                        <i data-lucide="clipboard-list"></i>
+                        <span data-i18n="nav.report">Reporte Diario</span>
+                    </li>
+                    <li class="nav-item" id="nav-limpieza" onclick="switchTab('limpieza')">
+                        <i data-lucide="printer"></i>
+                        <span data-i18n="nav.printerCleaning">Limpieza de Impresora</span>
+                    </li>
+                    <li class="nav-item" id="nav-rfid" onclick="switchTab('rfid')">
+                        <i data-lucide="radio"></i>
+                        <span data-i18n="nav.rfidVerification">Verificación RFID</span>
+                    </li>
+                    <li class="nav-item admin-only hidden" id="nav-usuarios" onclick="switchTab('usuarios')">
+                        <i data-lucide="users-round"></i>
+                        <span data-i18n="nav.users">Usuarios</span>
+                    </li>
+                </ul>
+            </nav>
+
+            <!-- Active User Info Card -->
+            <div class="sidebar-user-card" id="sidebar-user-card">
+                <div class="user-avatar-wrapper">
+                    <div class="user-avatar" id="user-avatar-initials">AD</div>
+                </div>
+                <div class="user-details">
+                    <h4 id="user-display-name">Administrador</h4>
+                    <span id="user-display-role">Nivel 3 - Admin</span>
+                </div>
+                <button class="btn-logout" onclick="handleLogout()" title="Cerrar Sesión">
+                    <i data-lucide="log-out"></i>
+                </button>
+            </div>
+
+            <!-- Demo Mode Controller (Master User Only) -->
+            <div class="demo-mode-panel glass-panel hidden" id="demo-mode-container" style="margin: 10px 16px; padding: 12px; border-radius: var(--border-radius-md); background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <span style="font-size: 0.8rem; font-weight: 600; color: white;" data-i18n="demo.title">Modo Demostración</span>
+                    <label class="switch" style="position: relative; display: inline-block; width: 34px; height: 20px;">
+                        <input type="checkbox" id="demo-mode-toggle" onchange="toggleDemoMode(this.checked)" style="opacity: 0; width: 0; height: 0;">
+                        <span class="slider round" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255,255,255,0.2); transition: .4s; border-radius: 20px;"></span>
+                    </label>
+                </div>
+                <div id="demo-level-selector-container" class="hidden" style="margin-top: 8px;">
+                    <select id="demo-level-select" onchange="changeDemoLevel(this.value)" style="font-size: 0.8rem; padding: 4px 8px; border-radius: 6px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.15); color: white; width: 100%; cursor: pointer;">
+                        <option value="1" data-i18n="level.1">Nivel 1 - Operador</option>
+                        <option value="2" data-i18n="level.2">Nivel 2 - Supervisor</option>
+                        <option value="3" data-i18n="level.3">Nivel 3 - Administrador</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Theme Selector -->
+            <div class="sidebar-theme-selector">
+                <span class="theme-label" data-i18n="theme.title">Tema Visual</span>
+                <div class="theme-options">
+                    <button class="theme-opt-btn theme-classic active" id="theme-btn-classic" onclick="setTheme('classic')" data-i18n-title="theme.classic" title="Clásico Azul" data-theme="classic">
+                        <span class="theme-color-dot classic"></span>
+                    </button>
+                    <button class="theme-opt-btn theme-emerald" id="theme-btn-emerald" onclick="setTheme('emerald')" data-i18n-title="theme.emerald" title="Bosque Esmeralda" data-theme="emerald">
+                        <span class="theme-color-dot emerald"></span>
+                    </button>
+                    <button class="theme-opt-btn theme-sand" id="theme-btn-sand" onclick="setTheme('sand')" data-i18n-title="theme.sand" title="Arena Cálida" data-theme="sand">
+                        <span class="theme-color-dot sand"></span>
+                    </button>
+                    <button class="theme-opt-btn theme-lavender" id="theme-btn-lavender" onclick="setTheme('lavender')" data-i18n-title="theme.lavender" title="Sueño Lavanda" data-theme="lavender">
+                        <span class="theme-color-dot lavender"></span>
+                    </button>
+                    <button class="theme-opt-btn theme-sunset" id="theme-btn-sunset" onclick="setTheme('sunset')" data-i18n-title="theme.sunset" title="Atardecer Coral" data-theme="sunset">
+                        <span class="theme-color-dot sunset"></span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Language Toggle Button -->
+            <div class="sidebar-lang-toggle">
+                <button class="lang-toggle-btn" id="sidebar-lang-btn" onclick="toggleLanguage()">
+                    <i data-lucide="globe"></i>
+                    <span id="sidebar-lang-label">Switch to English</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- MAIN MAIN CONTENT -->
+        <main class="app-main">
+            <!-- Top Header -->
+            <header class="app-header glass-panel">
+                <div class="header-left">
+                    <div class="welcome-text">
+                        <h2 id="header-greeting">Hola, Administrador</h2>
+                        <p id="header-subtitle">Turno: Mixto | Acceso: Nivel 3</p>
+                    </div>
+                </div>
+                
+                <div class="header-center" id="search-bar-container">
+                    <div style="display: flex; align-items: center; gap: 12px; width: 100%;">
+                        <div class="search-box">
+                            <i data-lucide="search" class="search-icon"></i>
+                            <input type="text" id="smart-search-input" data-i18n-placeholder="header.searchPlaceholder" placeholder="Búsqueda inteligente por nombre, marca, modelo, SKU..." oninput="handleSmartSearch(event)">
+                            <button class="clear-search" id="clear-search-btn" onclick="clearSearch()">&times;</button>
+                        </div>
+                        <button class="btn btn-secondary level-2-3-only" id="btn-open-movements" onclick="openMovementsModal()" data-i18n-title="movements.title" title="Registro de Movimientos" style="height: 42px; display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; padding: 0 16px;">
+                            <i data-lucide="history" style="width: 16px; height: 16px;"></i>
+                            <span data-i18n="inventory.movementsBtn">Movimientos</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="header-right">
+                    <!-- Notification / Status pill -->
+                    <div class="status-pill level-badge" id="level-indicator-pill">
+                        <i data-lucide="shield-check"></i>
+                        <span id="level-indicator-text">Nivel 3</span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- TAB 1: INVENTARIO -->
+            <section class="tab-content active" id="content-inventario">
+                <div class="content-header">
+                    <div class="section-title">
+                        <h3 data-i18n="inventory.title">Gestión de Artículos</h3>
+                        <p data-i18n="inventory.subtitle">Visualiza, busca y actualiza los artículos en stock.</p>
+                    </div>
+                    <button class="btn btn-primary level-2-3-only" id="btn-open-add-item-modal" onclick="openModal('add-item-modal')">
+                        <i data-lucide="plus"></i> <span data-i18n="inventory.addBtn">Agregar Componente</span>
+                    </button>
+                </div>
+
+                <!-- Active Filter Tags -->
+                <div class="filter-tags-row hidden" id="filter-tags-row">
+                    <span class="filter-label" data-i18n="inventory.activeFilters">Filtros activos:</span>
+                    <div class="tags-container" id="filter-tags-container"></div>
+                </div>
+
+                <!-- Grid list of items -->
+                <div class="inventory-grid" id="inventory-list-grid">
+                    <!-- Items loaded dynamically -->
+                </div>
+
+                <!-- Empty State -->
+                <div class="empty-state hidden" id="inventory-empty-state">
+                    <i data-lucide="package-search" class="empty-icon"></i>
+                    <h4 data-i18n="inventory.emptyTitle">No se encontraron artículos</h4>
+                    <p data-i18n="inventory.emptySubtitle">Intenta con otros términos de búsqueda o agrega un nuevo componente.</p>
+                </div>
+            </section>
+
+            <!-- TAB 2: ÓRDENES Y PEDIDOS -->
+            <section class="tab-content" id="content-ordenes">
+                <div class="content-header">
+                    <div class="section-title">
+                        <h3 data-i18n="orders.title">Órdenes y Pedidos</h3>
+                        <p data-i18n="orders.subtitle">Solicita artículos y realiza seguimiento en tiempo real.</p>
+                    </div>
+                </div>
+
+                <div class="orders-layout">
+                    <!-- Solicitud Form Card -->
+                    <div class="orders-form-card glass-panel">
+                        <div class="card-header">
+                            <i data-lucide="file-plus-2"></i>
+                            <h4 data-i18n="orders.newOrderTitle">Solicitar Nuevo Artículo</h4>
+                        </div>
+                        <form id="order-request-form" onsubmit="handleCreateOrder(event)">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="order-item-name" data-i18n="orders.itemNameLabel">Nombre del artículo</label>
+                                    <input type="text" id="order-item-name" data-i18n-placeholder="orders.itemNamePlaceholder" placeholder="Ej: Sensor Proximidad" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="order-item-model" data-i18n="orders.modelLabel">Modelo</label>
+                                    <input type="text" id="order-item-model" data-i18n-placeholder="orders.modelPlaceholder" placeholder="Ej: PNP-NO-M12" required>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="order-quantity" data-i18n="orders.quantityLabel">Cantidad</label>
+                                    <input type="number" id="order-quantity" min="1" value="1" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="order-total-cost" data-i18n="orders.costLabel">Costo total (USD)</label>
+                                    <input type="number" id="order-total-cost" min="0.01" step="0.01" data-i18n-placeholder="orders.costPlaceholder" placeholder="Ej: 45.50" required>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="order-item-link" data-i18n="orders.linkLabel">Link de compra / Referencia</label>
+                                <input type="url" id="order-item-link" data-i18n-placeholder="orders.linkPlaceholder" placeholder="Ej: https://tienda.com/sensor" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-block">
+                                <i data-lucide="send"></i> <span data-i18n="orders.sendBtn">Enviar Solicitud</span>
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Pedidos Pendientes Flow Panel -->
+                    <div class="orders-progress-card glass-panel">
+                        <div class="card-header">
+                            <i data-lucide="hourglass"></i>
+                            <h4 data-i18n="orders.pendingOrdersTitle">Pedidos Pendientes</h4>
+                        </div>
+                        <div class="progress-columns">
+                            <!-- Column 1: Solicitado -->
+                            <div class="progress-col">
+                                <div class="col-title status-solicitado">
+                                    <span data-i18n="orders.statusSolicitado">Solicitado</span>
+                                    <span class="badge" id="badge-count-solicitado">0</span>
+                                </div>
+                                <div class="col-cards-container" id="container-solicitado">
+                                    <!-- Dynamic cards -->
+                                </div>
+                            </div>
+                            <!-- Column 2: En Espera -->
+                            <div class="progress-col">
+                                <div class="col-title status-espera">
+                                    <span data-i18n="orders.statusEspera">En Espera (Aprobados)</span>
+                                    <span class="badge" id="badge-count-espera">0</span>
+                                </div>
+                                <div class="col-cards-container" id="container-espera">
+                                    <!-- Dynamic cards -->
+                                </div>
+                            </div>
+                            <!-- Column 3: Recibido -->
+                            <div class="progress-col">
+                                <div class="col-title status-recibido">
+                                    <span data-i18n="orders.statusRecibido">Recibido</span>
+                                    <span class="badge" id="badge-count-recibido">0</span>
+                                </div>
+                                <div class="col-cards-container" id="container-recibido">
+                                    <!-- Dynamic cards -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Orders History Table -->
+                <div class="orders-history-section glass-panel mt-4">
+                    <div class="card-header header-with-actions" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                        <div class="title-wrapper" style="display: flex; align-items: center; gap: 8px;">
+                            <i data-lucide="history"></i>
+                            <h4 data-i18n="orders.historyTitle">Historial de Pedidos</h4>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px; margin-left: auto;">
+                            <span class="subtext-note level-3-only-inline"><i data-lucide="info" class="inline-icon"></i> <span data-i18n="orders.historyNote">Solo el Nivel 3 puede eliminar registros de este historial</span></span>
+                            <button type="button" class="btn btn-secondary btn-sm level-2-3-only" id="btn-download-orders-pdf" onclick="downloadOrdersHistoryPDF()" style="display: flex; align-items: center; gap: 6px; padding: 4px 10px; font-size: 0.78rem; height: 32px; flex-shrink: 0;">
+                                <i data-lucide="download" style="width: 14px; height: 14px;"></i>
+                                <span data-i18n="orders.downloadPdf">Descargar PDF</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th data-i18n="orders.tableId">ID Pedido</th>
+                                    <th data-i18n="orders.tableDate">Fecha</th>
+                                    <th data-i18n="orders.tableRequester">Solicitado por</th>
+                                    <th data-i18n="orders.tableItem">Artículo</th>
+                                    <th data-i18n="orders.tableCost">Costo</th>
+                                    <th data-i18n="orders.tableStatus">Estado Final</th>
+                                    <th data-i18n="orders.tableHistoryLog">Historial</th>
+                                    <th class="level-3-only-cell" data-i18n="orders.tableAction">Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="orders-history-table-body">
+                                <!-- Loaded dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="table-empty-msg hidden" id="orders-history-empty" data-i18n="orders.emptyHistory">El historial está vacío.</div>
+                </div>
+            </section>
+
+            <!-- TAB 3: REPORTE DIARIO -->
+            <section class="tab-content" id="content-reporte">
+                <div class="content-header">
+                    <div class="section-title">
+                        <h3 data-i18n="reports.title">Reporte de Turno</h3>
+                        <p data-i18n="reports.subtitle">Registra tus actividades por hora y revisa la bitácora del día.</p>
+                    </div>
+                </div>
+
+                <div class="reports-layout">
+                    <!-- Report Form (Level 1 and 2 only) -->
+                    <div class="reports-form-card glass-panel" id="report-form-container">
+                        <div class="card-header">
+                            <i data-lucide="file-signature"></i>
+                            <h4 data-i18n="reports.registerTitle">Registrar Actividad</h4>
+                        </div>
+                        <!-- Associate Info Box -->
+                        <div class="associate-info-badge">
+                            <i data-lucide="user-check"></i>
+                            <div>
+                                <strong id="report-form-username">Asociado: Carlos Supervisor</strong>
+                                <span id="report-form-shift">Turno: Vespertino</span>
+                            </div>
+                        </div>
+
+                        <form id="shift-report-form" onsubmit="handleCreateReport(event)">
+                            <div class="cronograma-builder">
+                                <label style="font-weight: 700; font-size: 0.95rem; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+                                    <i data-lucide="clock" style="width: 16px; height: 16px; color: var(--color-primary);"></i>
+                                    <span data-i18n="reports.hourlyLogLabel">Cronograma de Actividades por Hora</span>
+                                </label>
+                                
+                                <div id="cronograma-rows-container">
+                                    <div class="cronograma-row">
+                                        <input type="time" class="crono-time" required>
+                                        <textarea class="crono-desc" rows="1" data-i18n-placeholder="reports.activityPlaceholder" placeholder="Actividad realizada a esta hora..." required></textarea>
+                                        <button type="button" class="btn-remove-row" onclick="removeCronogramaRow(this)">&times;</button>
+                                    </div>
+                                </div>
+                                
+                                <button type="button" class="btn btn-secondary btn-sm mt-2 btn-block" onclick="addCronogramaRow()">
+                                    <i data-lucide="plus-circle"></i> <span data-i18n="reports.addRowBtn">Añadir Hora al Cronograma</span>
+                                </button>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-primary btn-block">
+                                <i data-lucide="save"></i> <span data-i18n="reports.saveBtn">Registrar Cronograma Completo</span>
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Level 3 Block Info (if Level 3 wants to report, they shouldn't since it's for 1 and 2, but we will block the form and explain) -->
+                    <div class="reports-form-card glass-panel hidden" id="report-form-level3-blocked">
+                        <div class="card-header text-center">
+                            <i data-lucide="shield-x" class="blocked-icon"></i>
+                            <h4 data-i18n="reports.blockedTitle">Formulario Restringido</h4>
+                        </div>
+                        <p class="text-center mt-3 text-muted" data-i18n="reports.blockedText1">
+                            El formulario de reporte de turno está reservado únicamente para el <strong>Nivel 1 (Operadores)</strong> y <strong>Nivel 2 (Supervisores)</strong>.
+                        </p>
+                        <p class="text-center text-muted" data-i18n="reports.blockedText2">
+                            Como Administrador (Nivel 3), tu rol es de auditoría y puedes revisar todos los reportes en el panel lateral.
+                        </p>
+                    </div>
+
+                    <!-- View Reports List (Level 2 and 3 only) -->
+                    <div class="reports-list-card glass-panel" id="reports-view-container">
+                        <div class="card-header">
+                            <i data-lucide="archive"></i>
+                            <h4 id="reports-view-title" data-i18n="reports.viewTitle">Historial de Bitácoras (Nivel 2 y 3)</h4>
+                        </div>
+                        
+                        <!-- PDF Download Section for Bitacora (Nivel 2 and 3) -->
+                        <div class="pdf-download-control-box level-2-3-only" id="reports-pdf-box" style="padding: 16px; margin: 0 16px 16px 16px; border-radius: var(--border-radius-sm); background: rgba(var(--color-primary-rgb), 0.03); border: 1px dashed rgba(var(--color-primary-rgb), 0.2); display: flex; flex-direction: column; gap: 12px; margin-top: 12px;">
+                            <div style="font-weight: 700; font-size: 0.88rem; display: flex; align-items: center; gap: 6px; color: var(--color-primary); text-align: left;">
+                                <i data-lucide="file-text" style="width: 16px; height: 16px;"></i>
+                                <span data-i18n="reports.downloadPdfSection">Exportar Bitácoras a PDF</span>
+                            </div>
+                            <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; justify-content: flex-start; text-align: left;">
+                                <div style="display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 140px;">
+                                    <label style="font-size: 0.75rem; font-weight: 600; color: var(--color-text-muted);" data-i18n="reports.filterUser">Por Usuario</label>
+                                    <select id="pdf-report-user" style="padding: 6px 10px; border-radius: var(--border-radius-sm); border: 1px solid rgba(203,213,225,0.8); font-size: 0.82rem; background: white; outline: none; height: 34px; width: 100%;">
+                                        <option value="" data-i18n="reports.allUsers">Todos los usuarios</option>
+                                    </select>
+                                </div>
+                                <div style="display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 140px;">
+                                    <label style="font-size: 0.75rem; font-weight: 600; color: var(--color-text-muted);" data-i18n="reports.filterDay">Por Día</label>
+                                    <input type="date" id="pdf-report-date" style="padding: 6px 10px; border-radius: var(--border-radius-sm); border: 1px solid rgba(203,213,225,0.8); font-size: 0.82rem; height: 34px; outline: none; background: white; width: 100%;">
+                                </div>
+                                <div style="display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 140px;">
+                                    <label style="font-size: 0.75rem; font-weight: 600; color: var(--color-text-muted);" data-i18n="reports.filterWeek">Por Semana</label>
+                                    <input type="week" id="pdf-report-week" style="padding: 6px 10px; border-radius: var(--border-radius-sm); border: 1px solid rgba(203,213,225,0.8); font-size: 0.82rem; height: 34px; outline: none; background: white; width: 100%;">
+                                </div>
+                                <button type="button" class="btn btn-primary" onclick="downloadReportsPDF()" style="height: 34px; padding: 0 16px; font-size: 0.8rem; display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+                                    <i data-lucide="download" style="width: 14px; height: 14px;"></i>
+                                    <span data-i18n="reports.downloadPdfBtn">Descargar PDF</span>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="reports-grouped-list" id="reports-grouped-accordion">
+                            <!-- Grouped by Date dynamically -->
+                        </div>
+
+                        <div class="empty-state-reports" id="reports-empty-state">
+                            <i data-lucide="clipboard-x" class="empty-icon-small"></i>
+                            <p data-i18n="reports.emptyState">No se han registrado reportes en el sistema.</p>
+                        </div>
+                    </div>
+
+
+                </div>
+            </section>
+
+            <!-- TAB 4: CREACIÓN DE USUARIOS (NIVEL 3 ONLY) -->
+            <section class="tab-content" id="content-usuarios">
+                <div class="content-header">
+                    <div class="section-title">
+                        <h3 data-i18n="users.title">Administración de Usuarios</h3>
+                        <p data-i18n="users.subtitle">Registra y administra las cuentas de asociados para el acceso al sistema.</p>
+                    </div>
+                </div>
+
+                <div class="users-layout">
+                    <!-- Create User Form -->
+                    <div class="user-create-card glass-panel">
+                        <div class="card-header">
+                            <i data-lucide="user-plus"></i>
+                            <h4 data-i18n="users.registerTitle">Registrar Nuevo Asociado</h4>
+                        </div>
+                        <form id="create-user-form" onsubmit="handleCreateUser(event)">
+                            <div class="form-group">
+                                <label for="new-user-name" data-i18n="users.nameLabel">Nombre del Asociado</label>
+                                <input type="text" id="new-user-name" data-i18n-placeholder="users.namePlaceholder" placeholder="Ej: Juan Pérez" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="new-user-email" data-i18n="users.emailLabel">Correo Electrónico</label>
+                                <input type="email" id="new-user-email" data-i18n-placeholder="users.emailPlaceholder" placeholder="Ej: juan.perez@empresa.com" required>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="new-user-position" data-i18n="users.positionLabel">Posición / Cargo</label>
+                                    <input type="text" id="new-user-position" data-i18n-placeholder="users.positionPlaceholder" placeholder="Ej: Operador de Planta" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="new-user-shift" data-i18n="users.shiftLabel">Turno</label>
+                                    <select id="new-user-shift" required>
+                                        <option value="" disabled selected data-i18n="users.selectPlaceholder">Selecciona...</option>
+                                        <option value="Matutino" data-i18n="shift.morning">Matutino</option>
+                                        <option value="Vespertino" data-i18n="shift.evening">Vespertino</option>
+                                        <option value="Nocturno" data-i18n="shift.night">Nocturno</option>
+                                        <option value="Mixto" data-i18n="shift.mixed">Mixto</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="new-user-level" data-i18n="users.levelLabel">Nivel de Acceso</label>
+                                    <select id="new-user-level" required>
+                                        <option value="" disabled selected data-i18n="users.selectPlaceholder">Selecciona...</option>
+                                        <option value="1" data-i18n="level.1">Nivel 1 - Operador</option>
+                                        <option value="2" data-i18n="level.2">Nivel 2 - Supervisor</option>
+                                        <option value="3" data-i18n="level.3">Nivel 3 - Administrador</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <hr class="form-divider">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="new-user-username" data-i18n="users.usernameLabel">Usuario (Login)</label>
+                                    <input type="text" id="new-user-username" data-i18n-placeholder="users.usernamePlaceholder" placeholder="Ej: jperez" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="new-user-password" data-i18n="users.passwordLabel">Contraseña</label>
+                                    <input type="password" id="new-user-password" placeholder="••••••••" required>
+                                </div>
+                            </div>
+                            <div class="user-create-error" id="user-create-error" data-i18n="users.errorUsernameExists">El nombre de usuario ya existe.</div>
+                            <button type="submit" class="btn btn-primary btn-block">
+                                <i data-lucide="user-check"></i> <span data-i18n="users.createBtn">Crear Cuenta</span>
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Registered Users List -->
+                    <div class="users-list-card glass-panel">
+                        <div class="card-header">
+                            <i data-lucide="users"></i>
+                            <h4 data-i18n="users.registeredTitle">Asociados Registrados</h4>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th data-i18n="users.tableUser">Asociado / Cargo</th>
+                                        <th data-i18n="users.tableShift">Turno</th>
+                                        <th data-i18n="users.tableLevel">Nivel</th>
+                                        <th data-i18n="users.tableUsername">Usuario</th>
+                                        <th data-i18n="users.tableAction">Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="registered-users-table-body">
+                                    <!-- Loaded dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 5: LIMPIEZA DE IMPRESORA -->
+            <section class="tab-content" id="content-limpieza">
+                <div class="content-header">
+                    <div class="section-title">
+                        <h3 data-i18n="limpieza.title">Limpieza de Impresora</h3>
+                        <p data-i18n="limpieza.subtitle">Registro de limpieza de cabezales y rodillos de impresoras.</p>
+                    </div>
+                </div>
+
+                <div class="reports-layout">
+                    <!-- Form Card (Level 1 only) -->
+                    <div class="reports-form-card glass-panel" id="limpieza-form-container">
+                        <div class="card-header">
+                            <i data-lucide="printer"></i>
+                            <h4 data-i18n="limpieza.registerTitle">Registrar Limpieza</h4>
+                        </div>
+                        
+                        <form id="printer-cleaning-form" onsubmit="handleCreateLimpieza(event)">
+                            <div class="cronograma-builder">
+                                <label style="font-weight: 700; font-size: 0.95rem; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; width: 100%;">
+                                    <i data-lucide="list-checks" style="width: 16px; height: 16px; color: var(--color-primary);"></i>
+                                    <span data-i18n="limpieza.listLabel">Lista de Impresoras Limpiadas</span>
+                                </label>
+                                
+                                <div id="limpieza-rows-container">
+                                    <div class="limpieza-row">
+                                        <input type="text" class="crono-desc limpieza-estacion" data-i18n-placeholder="limpieza.placeholderEstacion" placeholder="Estación" required maxlength="5" style="max-width: 70px;">
+                                        <input type="text" class="crono-desc limpieza-tipo" data-i18n-placeholder="limpieza.placeholderTipo" placeholder="Tipo de impresora" required>
+                                        <input type="text" class="crono-desc limpieza-ip" data-i18n-placeholder="limpieza.placeholderIp" placeholder="IP Address" required style="max-width: 140px;">
+                                        <button type="button" class="btn-remove-row" onclick="removeLimpiezaRow(this)">&times;</button>
+                                    </div>
+                                </div>
+                                
+                                <button type="button" class="btn btn-secondary btn-sm mt-2 btn-block" onclick="addLimpiezaRow()">
+                                    <i data-lucide="plus-circle"></i> <span data-i18n="limpieza.addRowBtn">Añadir Fila</span>
+                                </button>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-primary btn-block">
+                                <i data-lucide="save"></i> <span data-i18n="limpieza.saveBtn">Registrar Limpiezas</span>
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Level 2 & 3 Block Info for Limpieza -->
+                    <div class="reports-form-card glass-panel hidden" id="limpieza-form-blocked">
+                        <div class="card-header text-center">
+                            <i data-lucide="shield-alert" class="blocked-icon" style="width: 42px; height: 42px; color: var(--color-warning); margin: 0 auto 12px auto; display: block;"></i>
+                            <h4 data-i18n="limpieza.blockedTitle">Formulario Reservado</h4>
+                        </div>
+                        <p class="text-center mt-3 text-muted" data-i18n="limpieza.blockedText1">
+                            El registro de limpieza de impresora está reservado únicamente para el <strong>Nivel 1 (Operadores)</strong>.
+                        </p>
+                        <p class="text-center text-muted" data-i18n="limpieza.blockedText2">
+                            Como Supervisor (Nivel 2) o Administrador (Nivel 3), tu rol es de auditoría y puedes revisar los registros en el panel de historial.
+                        </p>
+                    </div>
+
+                    <!-- View Limpieza History (Level 2 and 3 only) -->
+                    <div class="reports-list-card glass-panel" id="limpieza-view-container">
+                        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <i data-lucide="history"></i>
+                                <h4 data-i18n="limpieza.historyTitle">Historial de Limpiezas (Nivel 2 y 3)</h4>
+                            </div>
+                            <button type="button" class="btn btn-secondary btn-sm level-2-3-only" id="btn-download-limpieza-pdf" onclick="downloadLimpiezaPDF()" style="display: flex; align-items: center; gap: 6px; padding: 4px 10px; font-size: 0.78rem; height: 32px; flex-shrink: 0;">
+                                <i data-lucide="download" style="width: 14px; height: 14px;"></i>
+                                <span data-i18n="limpieza.downloadPdf">Descargar PDF</span>
+                            </button>
+                        </div>
+                        
+                        <div class="reports-grouped-list" id="limpieza-grouped-accordion">
+                            <!-- Grouped by Date dynamically -->
+                        </div>
+
+                        <div class="empty-state-reports" id="limpieza-empty-state">
+                            <i data-lucide="clipboard-x" class="empty-icon-small"></i>
+                            <p data-i18n="limpieza.emptyState">No se han registrado limpiezas en el sistema.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 6: VERIFICACIÓN RFID -->
+            <section class="tab-content" id="content-rfid">
+                <div class="content-header">
+                    <div class="section-title">
+                        <h3 data-i18n="rfid.title">Verificación RFID</h3>
+                        <p data-i18n="rfid.subtitle">Validación de antenas, lectores y coberturas RFID.</p>
+                    </div>
+                </div>
+
+                <div class="reports-layout">
+                    <!-- Form Card (Level 1 and 2 only) -->
+                    <div class="reports-form-card glass-panel" id="rfid-form-container">
+                        <div class="card-header">
+                            <i data-lucide="radio"></i>
+                            <h4 data-i18n="rfid.registerTitle">Registrar Verificación RFID</h4>
+                        </div>
+                        
+                        <form id="rfid-verification-form" onsubmit="handleCreateRfid(event)">
+                            <div class="cronograma-builder">
+                                <label style="font-weight: 700; font-size: 0.95rem; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; width: 100%;">
+                                    <i data-lucide="list-checks" style="width: 16px; height: 16px; color: var(--color-primary);"></i>
+                                    <span data-i18n="rfid.listLabel">Lista de Verificaciones RFID</span>
+                                </label>
+                                
+                                <div id="rfid-rows-container">
+                                    <div class="rfid-row">
+                                        <input type="text" class="crono-desc rfid-estacion" data-i18n-placeholder="rfid.placeholderEstacion" placeholder="Estación" required maxlength="5" style="max-width: 70px;">
+                                        <input type="text" class="crono-desc rfid-ip" data-i18n-placeholder="rfid.placeholderIp" placeholder="IP Address" required style="max-width: 160px;">
+                                        <div class="rfid-status-toggle" style="display: flex; gap: 6px; flex-shrink: 0;">
+                                            <button type="button" class="btn-rfid-status pass active" onclick="setRfidStatus(this, 'pass')" title="Aprobado">
+                                                <i data-lucide="check" style="width: 16px; height: 16px;"></i>
+                                            </button>
+                                            <button type="button" class="btn-rfid-status fail" onclick="setRfidStatus(this, 'fail')" title="Fallo">
+                                                <i data-lucide="x" style="width: 16px; height: 16px;"></i>
+                                            </button>
+                                            <input type="hidden" class="rfid-status-input" value="pass">
+                                        </div>
+                                        <button type="button" class="btn-remove-row" onclick="removeRfidRow(this)">&times;</button>
+                                    </div>
+                                </div>
+                                
+                                <button type="button" class="btn btn-secondary btn-sm mt-2 btn-block" onclick="addRfidRow()">
+                                    <i data-lucide="plus-circle"></i> <span data-i18n="rfid.addRowBtn">Añadir Fila</span>
+                                </button>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-primary btn-block">
+                                <i data-lucide="save"></i> <span data-i18n="rfid.saveBtn">Registrar Verificaciones</span>
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Level 3 Block Info for RFID -->
+                    <div class="reports-form-card glass-panel hidden" id="rfid-form-blocked">
+                        <div class="card-header text-center">
+                            <i data-lucide="shield-alert" class="blocked-icon" style="width: 42px; height: 42px; color: var(--color-warning); margin: 0 auto 12px auto; display: block;"></i>
+                            <h4 data-i18n="rfid.blockedTitle">Formulario Reservado</h4>
+                        </div>
+                        <p class="text-center mt-3 text-muted" data-i18n="rfid.blockedText1">
+                            El registro de verificación RFID está reservado únicamente para los <strong>Niveles 1 (Operadores) y 2 (Supervisores)</strong>.
+                        </p>
+                        <p class="text-center text-muted" data-i18n="rfid.blockedText2">
+                            Como Administrador (Nivel 3), tu rol es de auditoría y puedes revisar los registros en el panel de historial.
+                        </p>
+                    </div>
+
+                    <!-- View RFID History (Level 2 and 3 only) -->
+                    <div class="reports-list-card glass-panel" id="rfid-view-container">
+                        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <i data-lucide="history"></i>
+                                <h4 data-i18n="rfid.historyTitle">Historial de Verificaciones (Nivel 2 y 3)</h4>
+                            </div>
+                            <button type="button" class="btn btn-secondary btn-sm level-2-3-only" id="btn-download-rfid-pdf" onclick="downloadRfidPDF()" style="display: flex; align-items: center; gap: 6px; padding: 4px 10px; font-size: 0.78rem; height: 32px; flex-shrink: 0;">
+                                <i data-lucide="download" style="width: 14px; height: 14px;"></i>
+                                <span data-i18n="rfid.downloadPdf">Descargar PDF</span>
+                            </button>
+                        </div>
+                        
+                        <div class="reports-grouped-list" id="rfid-grouped-accordion">
+                            <!-- Grouped by Date dynamically -->
+                        </div>
+
+                        <div class="empty-state-reports" id="rfid-empty-state">
+                            <i data-lucide="clipboard-x" class="empty-icon-small"></i>
+                            <p data-i18n="rfid.emptyState">No se han registrado verificaciones en el sistema.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- MODAL: ADD COMPONENT (INVENTARIO) -->
+    <div class="modal-overlay" id="modal-add-item">
+        <div class="modal-card glass-panel animate-scale">
+            <div class="modal-header">
+                <h3><i data-lucide="box"></i> <span data-i18n="modal.addTitle">Agregar Nuevo Componente</span></h3>
+                <button class="close-modal" onclick="closeModal('add-item-modal')">&times;</button>
+            </div>
+            <form id="add-item-form" onsubmit="handleCreateItem(event)">
+                <div class="modal-body">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="item-name" data-i18n="modal.nameLabel">Nombre del Artículo *</label>
+                            <input type="text" id="item-name" data-i18n-placeholder="modal.namePlaceholder" placeholder="Ej: Rodamiento de Esferas" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="item-brand" data-i18n="modal.brandLabel">Marca *</label>
+                            <input type="text" id="item-brand" data-i18n-placeholder="modal.brandPlaceholder" placeholder="Ej: SKF" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="item-model" data-i18n="modal.modelLabel">Modelo *</label>
+                            <input type="text" id="item-model" data-i18n-placeholder="modal.modelPlaceholder" placeholder="Ej: 6204-2RSH" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="item-sku" data-i18n="modal.skuLabel">SKU (9 caracteres en Mayúsculas) *</label>
+                            <div class="sku-input-group">
+                                <input type="text" id="item-sku" maxlength="9" data-i18n-placeholder="modal.skuPlaceholder" placeholder="Generar o escribir..." style="text-transform: uppercase;" required>
+                                <button type="button" class="btn btn-secondary btn-sm" onclick="triggerSKUGeneration()" data-i18n="modal.generateBtn">Generar</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="item-location" data-i18n="modal.locationLabel">Ubicación física *</label>
+                            <input type="text" id="item-location" data-i18n-placeholder="modal.locationPlaceholder" placeholder="Ej: Pasillo A - Estante 3" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="item-min-stock" data-i18n="modal.minStockLabel">Stock Mínimo *</label>
+                            <input type="number" id="item-min-stock" min="1" data-i18n-placeholder="modal.minStockPlaceholder" placeholder="Ej: 5" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group" style="max-width: 50%;">
+                            <label for="item-initial-stock" data-i18n="modal.initialStockLabel">Stock Inicial *</label>
+                            <input type="number" id="item-initial-stock" min="0" data-i18n-placeholder="modal.initialStockPlaceholder" placeholder="Ej: 20" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group image-selection-group">
+                        <label data-i18n="modal.imageLabel">Imagen del Artículo *</label>
+                        
+                        <!-- Image Selection Tabs -->
+                        <div class="image-mode-tabs">
+                            <button type="button" class="img-tab-btn active" id="add-tab-upload" onclick="switchAddImageTab('upload')">
+                                <i data-lucide="upload-cloud"></i> <span data-i18n="modal.tabUpload">Subir Archivo</span>
+                            </button>
+                            <button type="button" class="img-tab-btn" id="add-tab-icon" onclick="switchAddImageTab('icon')">
+                                <i data-lucide="shapes"></i> <span data-i18n="modal.tabIcon">Seleccionar Icono</span>
+                            </button>
+                            <button type="button" class="img-tab-btn" id="add-tab-url" onclick="switchAddImageTab('url')">
+                                <i data-lucide="link-2"></i> <span data-i18n="modal.tabUrl">URL</span>
+                            </button>
+                        </div>
+                        
+                        <!-- Hidden storage for source mode -->
+                        <input type="hidden" id="item-image-source-mode" value="upload">
+                        
+                        <!-- Tab 1: Upload (Drag & Drop) -->
+                        <div id="add-image-upload-wrapper" class="image-tab-content mt-2">
+                            <div class="drag-drop-zone" id="drag-drop-zone" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)" onclick="triggerFileInput('item-image-file')">
+                                <i data-lucide="cloud-upload" class="upload-icon-big"></i>
+                                <p class="drag-text" data-i18n="modal.dragText">Arrastra una imagen aquí o haz click para seleccionar</p>
+                                <input type="file" id="item-image-file" accept="image/*" style="display:none;" onchange="previewUploadedImage(event)">
+                            </div>
+                            <span id="upload-file-name" class="text-muted" style="font-size: 0.75rem; display: block; margin-top: 6px; text-align: center;" data-i18n="modal.noFileSelected">Ningún archivo seleccionado</span>
+                            <div id="add-image-preview-container" class="image-preview-container hidden mt-2">
+                                <img id="add-image-preview" src="" alt="Vista previa">
+                                <button type="button" class="btn-remove-preview" onclick="removeAddImagePreview()">&times;</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Tab 2: Icon Grid Selector -->
+                        <div id="add-image-icon-wrapper" class="image-tab-content hidden mt-2">
+                            <div class="icon-selector-grid">
+                                <div class="icon-option active" data-icon="computer" onclick="selectAddIcon('computer')">
+                                    <i data-lucide="monitor"></i>
+                                    <span data-i18n="modal.iconComputer">Computación</span>
+                                </div>
+                                <div class="icon-option" data-icon="printer" onclick="selectAddIcon('printer')">
+                                    <i data-lucide="printer"></i>
+                                    <span data-i18n="modal.iconPrinter">Impresora</span>
+                                </div>
+                                <div class="icon-option" data-icon="sensor" onclick="selectAddIcon('sensor')">
+                                    <i data-lucide="cpu"></i>
+                                    <span data-i18n="modal.iconSensor">Sensor</span>
+                                </div>
+                                <div class="icon-option" data-icon="bearing" onclick="selectAddIcon('bearing')">
+                                    <i data-lucide="disc"></i>
+                                    <span data-i18n="modal.iconBearing">Rodamiento</span>
+                                </div>
+                                <div class="icon-option" data-icon="tool" onclick="selectAddIcon('tool')">
+                                    <i data-lucide="wrench"></i>
+                                    <span data-i18n="modal.iconTool">Herramienta</span>
+                                </div>
+                                <div class="icon-option" data-icon="cable" onclick="selectAddIcon('cable')">
+                                    <i data-lucide="cable"></i>
+                                    <span data-i18n="modal.iconCable">Conector</span>
+                                </div>
+                            </div>
+                            <input type="hidden" id="add-item-selected-icon" value="computer">
+                            <div class="icon-preview-box mt-2">
+                                <span data-i18n="modal.previewLabel">Previsualización del plano generado:</span>
+                                <div class="icon-preview-display" id="add-icon-preview-display"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- Tab 3: URL -->
+                        <div id="add-image-url-wrapper" class="image-tab-content hidden mt-2">
+                            <input type="url" id="item-custom-image-url" data-i18n-placeholder="modal.urlPlaceholder" placeholder="https://ejemplo.com/imagen.jpg">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="item-description" data-i18n="modal.descLabel">Descripción General</label>
+                        <textarea id="item-description" rows="3" data-i18n-placeholder="modal.descPlaceholder" placeholder="Describe brevemente el uso, especificaciones o detalles técnicos del componente."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('add-item-modal')" data-i18n="modal.cancelBtn">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" data-i18n="modal.saveBtn">Guardar Componente</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: ITEM DETAIL (INVENTARIO) -->
+    <div class="modal-overlay" id="modal-item-detail">
+        <div class="modal-card modal-card-large glass-panel animate-scale">
+            <div class="modal-header">
+                <h3><span data-i18n="detail.title">Detalle de Componente</span></h3>
+                <button class="close-modal" onclick="closeModal('item-detail-modal')">&times;</button>
+            </div>
+            <div class="modal-body detail-modal-body">
+                <div class="detail-grid">
+                    <!-- Left column: Image & Quick Stats -->
+                    <div class="detail-left">
+                        <div class="detail-image-container">
+                            <img id="detail-image" src="" alt="Imagen del Artículo">
+                        </div>
+                        <div class="detail-stock-indicator" id="detail-stock-badge">
+                            <span id="detail-stock-text">Stock: 24 unidades</span>
+                            <span class="stock-status" id="detail-stock-status">Suficiente</span>
+                        </div>
+                    </div>
+
+                    <!-- Right column: Specs & Operations -->
+                    <div class="detail-right">
+                        <div class="detail-info-header">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; width: 100%;">
+                                <h2 id="detail-title">Sensor de Proximidad</h2>
+                                <div style="display: flex; gap: 6px; flex-shrink: 0;">
+                                    <button class="btn btn-secondary btn-sm level-2-3-only" id="btn-edit-item" onclick="openEditItemModal()" style="padding: 6px 12px; font-size: 0.8rem; gap: 4px;">
+                                        <i data-lucide="edit-3" style="width:14px; height:14px;"></i> <span data-i18n="detail.editBtn">Editar</span>
+                                    </button>
+                                    <button class="btn btn-danger btn-sm level-2-3-only" id="btn-delete-item" onclick="handleDeleteItem()" style="padding: 6px 12px; font-size: 0.8rem; gap: 4px;">
+                                        <i data-lucide="trash-2" style="width:14px; height:14px;"></i> <span data-i18n="detail.deleteBtn">Eliminar</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <p class="detail-subtitle" id="detail-brand-model">SKF • 6204-2RSH</p>
+                        </div>
+                        
+                        <div class="specs-grid">
+                            <div class="spec-item">
+                                <span class="spec-label" data-i18n="detail.skuLabel">SKU</span>
+                                <span class="spec-val font-mono" id="detail-sku">SKU-A9B32</span>
+                            </div>
+                            <div class="spec-item">
+                                <span class="spec-label" data-i18n="detail.locationLabel">Ubicación</span>
+                                <span class="spec-val" id="detail-location">Pasillo A - Estante 3</span>
+                            </div>
+                            <div class="spec-item">
+                                <span class="spec-label" data-i18n="detail.minStockLabel">Stock Mínimo</span>
+                                <span class="spec-val" id="detail-min-stock">5 unidades</span>
+                            </div>
+                            <div class="spec-item">
+                                <span class="spec-label" data-i18n="detail.descLabel">Descripción</span>
+                                <p class="spec-val-desc" id="detail-description">Rodamiento rígido de una hilera de bolas con obturaciones en ambos lados.</p>
+                            </div>
+                        </div>
+
+                        <hr class="detail-divider">
+
+                        <!-- PDF Download Box (Level 2 & 3 only) -->
+                        <div class="pdf-download-box level-2-3-only" id="detail-pdf-box" style="margin-top: 15px; margin-bottom: 15px; padding: 12px 16px; border-radius: var(--border-radius-sm); background: rgba(var(--color-primary-rgb), 0.05); border: 1px dashed rgba(var(--color-primary-rgb), 0.3); display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <i data-lucide="file-text" style="color: var(--color-primary); width: 20px; height: 20px;"></i>
+                                <div style="text-align: left;">
+                                    <h5 style="margin: 0; font-size: 0.88rem; font-weight: 700;" data-i18n="detail.pdfBoxTitle">Ficha Técnica en PDF</h5>
+                                    <p style="margin: 0; font-size: 0.75rem; color: var(--color-text-muted);" data-i18n="detail.pdfBoxDesc">Descarga un documento PDF completo con la información de este artículo.</p>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-primary btn-sm" onclick="downloadItemPDF()" style="padding: 6px 12px; font-size: 0.8rem; gap: 4px; display: inline-flex; align-items: center; justify-content: center; height: 32px; flex-shrink: 0;">
+                                <i data-lucide="download" style="width: 14px; height: 14px;"></i>
+                                <span data-i18n="detail.downloadPdf">Descargar PDF</span>
+                            </button>
+                        </div>
+
+                        <!-- Inventory Operations (Scanning verification required) -->
+                        <div class="inventory-ops-box">
+                            <h4 data-i18n="detail.adjustTitle">Ajuste de Inventario (Entrada / Salida)</h4>
+                            <p class="ops-note" data-i18n="detail.adjustNote">Para habilitar las operaciones de inventario, escanee primero el SKU del artículo.</p>
+
+                            <!-- Scanner simulation -->
+                            <div class="scanner-section" id="scanner-wrapper">
+                                <div class="scanner-input-row">
+                                    <div class="form-group-compact flex-grow">
+                                        <input type="text" id="scan-sku-input" data-i18n-placeholder="detail.scanPlaceholder" placeholder="Ingresa o escanea el SKU..." oninput="checkSkuScan(this.value)">
+                                    </div>
+                                    <button class="btn btn-secondary btn-sm" onclick="simulateSkuScan()" data-i18n="detail.simulateScanBtn">Simular Escaneo</button>
+                                </div>
+                                <div class="scan-status-message" id="scan-status-message">
+                                    <i data-lucide="alert-circle" class="icon-small text-warning"></i> <span data-i18n="detail.waitingSku">Esperando escaneo de SKU...</span>
+                                </div>
+                            </div>
+
+                            <!-- Controls (Locked by default) -->
+                            <div class="stock-control-interface locked" id="stock-control-interface">
+                                <div class="adjust-label-row">
+                                    <span data-i18n="detail.adjustQtyLabel">Selecciona la cantidad a ajustar:</span>
+                                    <strong id="stock-current-display">Stock Actual: 24</strong>
+                                </div>
+                                <div class="adjust-control-row">
+                                    <button class="btn-adjust btn-minus" onclick="adjustStockValue(-1)" id="btn-stock-minus">—</button>
+                                    <input type="number" id="adjust-qty-input" class="adjust-input" value="1" min="1">
+                                    <button class="btn-adjust btn-plus" onclick="adjustStockValue(1)" id="btn-stock-plus">+</button>
+                                </div>
+                                <div class="adjust-action-buttons">
+                                    <button class="btn btn-danger flex-grow" onclick="saveStockAdjustment('sub')">
+                                        <i data-lucide="minus-circle"></i> <span data-i18n="detail.subStockBtn">Retirar del Stock</span>
+                                    </button>
+                                    <button class="btn btn-success flex-grow" onclick="saveStockAdjustment('add')">
+                                        <i data-lucide="plus-circle"></i> <span data-i18n="detail.addStockBtn">Agregar al Stock</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: EDIT COMPONENT (INVENTARIO) -->
+    <div class="modal-overlay" id="modal-edit-item">
+        <div class="modal-card glass-panel animate-scale">
+            <div class="modal-header">
+                <h3><i data-lucide="edit-3"></i> <span data-i18n="modal.editTitle">Editar Componente</span></h3>
+                <button class="close-modal" onclick="closeModal('edit-item-modal')">&times;</button>
+            </div>
+            <form id="edit-item-form" onsubmit="handleUpdateItem(event)">
+                <input type="hidden" id="edit-item-id">
+                <div class="modal-body">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="edit-item-name" data-i18n="modal.nameLabel">Nombre del Artículo *</label>
+                            <input type="text" id="edit-item-name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-item-brand" data-i18n="modal.brandLabel">Marca *</label>
+                            <input type="text" id="edit-item-brand" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="edit-item-model" data-i18n="modal.modelLabel">Modelo *</label>
+                            <input type="text" id="edit-item-model" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-item-sku" data-i18n="modal.skuLabel">SKU (9 caracteres en Mayúsculas) *</label>
+                            <div class="sku-input-group">
+                                <input type="text" id="edit-item-sku" maxlength="9" style="text-transform: uppercase;" required>
+                                <button type="button" class="btn btn-secondary btn-sm" onclick="triggerEditSKUGeneration()" data-i18n="modal.generateBtn">Generar</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="edit-item-location" data-i18n="modal.locationLabel">Ubicación física *</label>
+                            <input type="text" id="edit-item-location" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-item-min-stock" data-i18n="modal.minStockLabel">Stock Mínimo *</label>
+                            <input type="number" id="edit-item-min-stock" min="1" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group" style="max-width: 50%;">
+                            <label for="edit-item-stock" data-i18n="modal.currentStockLabel">Stock Actual *</label>
+                            <input type="number" id="edit-item-stock" min="0" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group image-selection-group">
+                        <label data-i18n="modal.imageLabel">Imagen del Artículo</label>
+                        
+                        <!-- Image Selection Tabs -->
+                        <div class="image-mode-tabs">
+                            <button type="button" class="img-tab-btn active" id="edit-tab-keep" onclick="switchEditImageTab('keep')">
+                                <i data-lucide="image"></i> <span data-i18n="modal.tabKeep">Mantener Actual</span>
+                            </button>
+                            <button type="button" class="img-tab-btn" id="edit-tab-upload" onclick="switchEditImageTab('upload')">
+                                <i data-lucide="upload-cloud"></i> <span data-i18n="modal.tabUpload">Nueva Imagen</span>
+                            </button>
+                            <button type="button" class="img-tab-btn" id="edit-tab-icon" onclick="switchEditImageTab('icon')">
+                                <i data-lucide="shapes"></i> <span data-i18n="modal.tabIcon">Nuevo Icono</span>
+                            </button>
+                            <button type="button" class="img-tab-btn" id="edit-tab-url" onclick="switchEditImageTab('url')">
+                                <i data-lucide="link-2"></i> <span data-i18n="modal.tabUrl">URL</span>
+                            </button>
+                        </div>
+                        
+                        <!-- Hidden storage for source mode -->
+                        <input type="hidden" id="edit-item-image-source-mode" value="keep">
+                        
+                        <!-- Tab 0: Keep Current -->
+                        <div id="edit-image-keep-wrapper" class="image-tab-content mt-2">
+                            <div class="keep-current-preview">
+                                <img id="edit-current-image-preview" src="" alt="Imagen actual">
+                                <span class="text-muted" style="font-size: 0.8rem;" data-i18n="modal.keepImageText">Se conservará esta imagen a menos que selecciones otra pestaña.</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Tab 1: Upload (Drag & Drop) -->
+                        <div id="edit-image-upload-wrapper" class="image-tab-content hidden mt-2">
+                            <div class="drag-drop-zone" id="edit-drag-drop-zone" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleEditDrop(event)" onclick="triggerFileInput('edit-item-image-file')">
+                                <i data-lucide="cloud-upload" class="upload-icon-big"></i>
+                                <p class="drag-text" data-i18n="modal.dragText">Arrastra una imagen aquí o haz click para seleccionar</p>
+                                <input type="file" id="edit-item-image-file" accept="image/*" style="display:none;" onchange="previewEditUploadedImage(event)">
+                            </div>
+                            <span id="edit-upload-file-name" class="text-muted" style="font-size: 0.75rem; display: block; margin-top: 6px; text-align: center;" data-i18n="modal.noFileSelected">Ningún archivo seleccionado</span>
+                            <div id="edit-image-preview-container" class="image-preview-container hidden mt-2">
+                                <img id="edit-image-preview" src="" alt="Vista previa">
+                                <button type="button" class="btn-remove-preview" onclick="removeEditImagePreview()">&times;</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Tab 2: Icon Grid Selector -->
+                        <div id="edit-image-icon-wrapper" class="image-tab-content hidden mt-2">
+                            <div class="icon-selector-grid">
+                                <div class="icon-option active" data-icon="computer" onclick="selectEditIcon('computer')">
+                                    <i data-lucide="monitor"></i>
+                                    <span data-i18n="modal.iconComputer">Computación</span>
+                                </div>
+                                <div class="icon-option" data-icon="printer" onclick="selectEditIcon('printer')">
+                                    <i data-lucide="printer"></i>
+                                    <span data-i18n="modal.iconPrinter">Impresora</span>
+                                </div>
+                                <div class="icon-option" data-icon="sensor" onclick="selectEditIcon('sensor')">
+                                    <i data-lucide="cpu"></i>
+                                    <span data-i18n="modal.iconSensor">Sensor</span>
+                                </div>
+                                <div class="icon-option" data-icon="bearing" onclick="selectEditIcon('bearing')">
+                                    <i data-lucide="disc"></i>
+                                    <span data-i18n="modal.iconBearing">Rodamiento</span>
+                                </div>
+                                <div class="icon-option" data-icon="tool" onclick="selectEditIcon('tool')">
+                                    <i data-lucide="wrench"></i>
+                                    <span data-i18n="modal.iconTool">Herramienta</span>
+                                </div>
+                                <div class="icon-option" data-icon="cable" onclick="selectEditIcon('cable')">
+                                    <i data-lucide="cable"></i>
+                                    <span data-i18n="modal.iconCable">Conector</span>
+                                </div>
+                            </div>
+                            <input type="hidden" id="edit-item-selected-icon" value="computer">
+                            <div class="icon-preview-box mt-2">
+                                <span data-i18n="modal.previewLabel">Previsualización del plano generado:</span>
+                                <div class="icon-preview-display" id="edit-icon-preview-display"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- Tab 3: URL -->
+                        <div id="edit-image-url-wrapper" class="image-tab-content hidden mt-2">
+                            <input type="url" id="edit-item-custom-image-url" data-i18n-placeholder="modal.urlPlaceholder" placeholder="https://ejemplo.com/imagen.jpg">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-item-description" data-i18n="modal.descLabel">Descripción General</label>
+                        <textarea id="edit-item-description" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('edit-item-modal')" data-i18n="modal.cancelBtn">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" data-i18n="modal.saveChangesBtn">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: EDIT USER (USUARIOS) -->
+    <div class="modal-overlay" id="modal-edit-user">
+        <div class="modal-card glass-panel animate-scale">
+            <div class="modal-header">
+                <h3><i data-lucide="user-cog"></i> <span data-i18n="modal.editUserTitle">Editar Asociado</span></h3>
+                <button class="close-modal" onclick="closeModal('edit-user-modal')">&times;</button>
+            </div>
+            <form id="edit-user-form" onsubmit="handleUpdateUser(event)">
+                <input type="hidden" id="edit-user-original-username">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="edit-user-name" data-i18n="users.nameLabel">Nombre del Asociado</label>
+                        <input type="text" id="edit-user-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-user-email" data-i18n="users.emailLabel">Correo Electrónico</label>
+                        <input type="email" id="edit-user-email" required>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="edit-user-position" data-i18n="users.positionLabel">Posición / Cargo</label>
+                            <input type="text" id="edit-user-position" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-user-shift" data-i18n="users.shiftLabel">Turno</label>
+                            <select id="edit-user-shift" required>
+                                <option value="Matutino" data-i18n="shift.morning">Matutino</option>
+                                <option value="Vespertino" data-i18n="shift.evening">Vespertino</option>
+                                <option value="Nocturno" data-i18n="shift.night">Nocturno</option>
+                                <option value="Mixto" data-i18n="shift.mixed">Mixto</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="edit-user-level" data-i18n="users.levelLabel">Nivel de Acceso</label>
+                            <select id="edit-user-level" required>
+                                <option value="1" data-i18n="level.1">Nivel 1 - Operador</option>
+                                <option value="2" data-i18n="level.2">Nivel 2 - Supervisor</option>
+                                <option value="3" data-i18n="level.3">Nivel 3 - Administrador</option>
+                            </select>
+                        </div>
+                    </div>
+                    <hr class="form-divider">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="edit-user-username" data-i18n="users.usernameLabel">Usuario (Login)</label>
+                            <input type="text" id="edit-user-username" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-user-password" data-i18n="users.passwordLabel">Contraseña</label>
+                            <input type="password" id="edit-user-password" required>
+                        </div>
+                    </div>
+                    <div class="user-create-error" id="edit-user-error" data-i18n="users.errorUsernameExists" style="display:none;">El nombre de usuario ya existe.</div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('edit-user-modal')" data-i18n="modal.cancelBtn">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" data-i18n="modal.saveChangesBtn">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: EDIT LIMPIEZA DE IMPRESORA -->
+    <div class="modal-overlay" id="modal-edit-limpieza">
+        <div class="modal-card glass-panel animate-scale" style="max-width: 650px;">
+            <div class="modal-header">
+                <h3><i data-lucide="printer"></i> <span data-i18n="limpieza.editTitle">Editar Registro de Limpieza</span></h3>
+                <button class="close-modal" onclick="closeModal('edit-limpieza-modal')">&times;</button>
+            </div>
+            <form id="edit-limpieza-form" onsubmit="handleUpdateLimpieza(event)">
+                <input type="hidden" id="edit-limpieza-log-id">
+                <div class="modal-body">
+                    <div class="cronograma-builder">
+                        <div id="edit-limpieza-rows-container"></div>
+                        <button type="button" class="btn btn-secondary btn-sm mt-2 btn-block" onclick="addEditLimpiezaRow()">
+                            <i data-lucide="plus-circle"></i> <span data-i18n="limpieza.addRowBtn">Añadir Fila</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('edit-limpieza-modal')" data-i18n="modal.cancelBtn">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" data-i18n="modal.saveChangesBtn">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: EDIT VERIFICACIÓN RFID -->
+    <div class="modal-overlay" id="modal-edit-rfid">
+        <div class="modal-card glass-panel animate-scale" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3><i data-lucide="radio"></i> <span data-i18n="rfid.editTitle">Editar Verificación RFID</span></h3>
+                <button class="close-modal" onclick="closeModal('edit-rfid-modal')">&times;</button>
+            </div>
+            <form id="edit-rfid-form" onsubmit="handleUpdateRfid(event)">
+                <input type="hidden" id="edit-rfid-log-id">
+                <div class="modal-body">
+                    <div class="cronograma-builder">
+                        <div id="edit-rfid-rows-container"></div>
+                        <button type="button" class="btn btn-secondary btn-sm mt-2 btn-block" onclick="addEditRfidRow()">
+                            <i data-lucide="plus-circle"></i> <span data-i18n="rfid.addRowBtn">Añadir Fila</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('edit-rfid-modal')" data-i18n="modal.cancelBtn">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" data-i18n="modal.saveChangesBtn">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: REGISTRO DE MOVIMIENTOS -->
+    <div class="modal-overlay" id="modal-movements">
+        <div class="modal-card modal-card-large glass-panel animate-scale" style="max-width: 950px; width: 95%;">
+            <div class="modal-header">
+                <h3><i data-lucide="history"></i> <span data-i18n="movements.title">Registro de Movimientos</span></h3>
+                <div style="display: flex; align-items: center; gap: 12px; margin-left: auto; margin-right: 15px;">
+                    <button class="btn btn-secondary btn-sm" id="btn-download-movements-pdf" onclick="downloadMovementsPDF()" style="display: flex; align-items: center; gap: 6px; height: 32px;">
+                        <i data-lucide="download" style="width: 14px; height: 14px;"></i>
+                        <span data-i18n="movements.downloadPdf">Descargar PDF</span>
+                    </button>
+                </div>
+                <button class="close-modal" onclick="closeModal('movements')">&times;</button>
+            </div>
+            <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+                <div style="overflow-x: auto;">
+                    <table class="table" style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                        <thead>
+                            <tr style="border-bottom: 2px solid rgba(203, 213, 225, 0.4); text-align: left;">
+                                <th style="padding: 10px;" data-i18n="movements.tableDate">Fecha</th>
+                                <th style="padding: 10px;" data-i18n="movements.tableUser">Usuario</th>
+                                <th style="padding: 10px;" data-i18n="movements.tableItem">Componente</th>
+                                <th style="padding: 10px;" data-i18n="movements.tableSku">SKU</th>
+                                <th style="padding: 10px;" data-i18n="movements.tableType">Tipo</th>
+                                <th style="padding: 10px; text-align: center;" data-i18n="movements.tableQty">Cant.</th>
+                                <th style="padding: 10px; text-align: center;" data-i18n="movements.tableStock">Stock (Previo → Nuevo)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="movements-table-body">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+                <div id="movements-empty-state" class="text-center py-4 text-muted hidden" style="padding: 30px 10px; display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                    <i data-lucide="clipboard-x" style="width: 40px; height: 40px; stroke-width: 1.5;"></i>
+                    <p data-i18n="movements.empty">No se han registrado movimientos de inventario.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- NOTIFICATION POPUP (Toast) -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- MAIN LOGIC -->
+    <script src="app.js"></script>
+</body>
+</html>
